@@ -1,24 +1,30 @@
 #!/bin/bash
 
-# https://sourceforge.net/p/soxr/code/ci/master/tree/
-SOXR_REPO="https://git.code.sf.net/p/soxr/code"
-SOXR_COMMIT="945b592b70470e29f917f4de89b4281fbbd540c0"
+SCRIPT_REPO="https://git.code.sf.net/p/soxr/code"
+SCRIPT_COMMIT="945b592b70470e29f917f4de89b4281fbbd540c0"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$SOXR_REPO" "$SOXR_COMMIT" soxr
-    cd soxr
+    sed -i 's/VERSION 3.1 /VERSION 3.1...3.10 /g' CMakeLists.txt
+
+    # Short-circuit the check to generate a .pc file. We always want it.
+    sed -i 's/NOT WIN32/1/g' src/CMakeLists.txt
 
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" -DWITH_OPENMP=ON -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF ..
+    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -DWITH_OPENMP="$([[ $TARGET == winarm64 ]] && echo OFF || echo ON)" \
+        -DBUILD_TESTS=OFF -DBUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF \
+        ..
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 
-    echo "Libs.private: -lgomp" >> "$FFBUILD_PREFIX"/lib/pkgconfig/soxr.pc
+    if [[ $TARGET != winarm64 ]]; then
+        echo "Libs.private: -lgomp" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/soxr.pc
+    fi
 }
 
 ffbuild_configure() {
@@ -34,5 +40,5 @@ ffbuild_ldflags() {
 }
 
 ffbuild_libs() {
-    echo -lgomp
+    [[ $TARGET != winarm64 ]] && echo -lgomp
 }

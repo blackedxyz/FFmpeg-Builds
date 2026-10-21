@@ -1,15 +1,15 @@
 #!/bin/bash
 
-WEBP_REPO="https://chromium.googlesource.com/webm/libwebp"
-WEBP_COMMIT="35b7436a216857eabf4773681fecd8fd52bcc3e7"
+SCRIPT_REPO="https://chromium.googlesource.com/webm/libwebp"
+SCRIPT_COMMIT="5c168cd23b1872969c38e34b01b04dcf29849288"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$WEBP_REPO" "$WEBP_COMMIT" webp
-    cd webp
+    # Remove broken internal library that depends on things we disable
+    sed -i '/libanim_util/d' examples/Makefile.am
 
     ./autogen.sh
 
@@ -19,8 +19,8 @@ ffbuild_dockerbuild() {
         --enable-static
         --with-pic
         --enable-libwebpmux
+        --enable-libwebpdemux
         --disable-libwebpextras
-        --disable-libwebpdemux
         --disable-sdl
         --disable-gl
         --disable-png
@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {

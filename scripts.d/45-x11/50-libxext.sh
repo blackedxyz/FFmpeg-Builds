@@ -1,7 +1,7 @@
 #!/bin/bash
 
-LIBXEXT_REPO="https://gitlab.freedesktop.org/xorg/lib/libxext.git"
-LIBXEXT_COMMIT="47904063048fa6ef6e8e16219ddef4d14d5d9a4b"
+SCRIPT_REPO="https://gitlab.freedesktop.org/xorg/lib/libxext.git"
+SCRIPT_COMMIT="508f8adca2540ff8926ac8456cb1c553a8caae76"
 
 ffbuild_enabled() {
     [[ $TARGET != linux* ]] && return -1
@@ -9,21 +9,24 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$LIBXEXT_REPO" "$LIBXEXT_COMMIT" libxext
-    cd libxext
-
     autoreconf -i
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --disable-shared
-        --enable-static
+        --enable-shared
+        --disable-static
         --with-pic
         --without-xmlto
         --without-fop
         --without-xsltproc
         --without-lint
     )
+
+    if [[ $TARGET == linuxarm64 ]]; then
+        myconf+=(
+            --disable-malloc0returnsnull
+        )
+    fi
 
     if [[ $TARGET == linux* ]]; then
         myconf+=(
@@ -34,7 +37,13 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
+    export CFLAGS="$RAW_CFLAGS -D_GNU_SOURCE"
+    export LDFLAGS="$RAW_LDFLAGS"
+
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
+
+    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libXext.so.6,libXext.a}
+    rm "$FFBUILD_DESTPREFIX"/lib/libXext{.so*,.la}
 }

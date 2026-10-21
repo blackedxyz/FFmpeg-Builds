@@ -1,29 +1,34 @@
 #!/bin/bash
 
-SERD_REPO="https://github.com/drobilla/serd.git"
-SERD_COMMIT="c05fdaa19be53ef618435d3629122a4ebdc7cb63"
+SCRIPT_REPO="https://github.com/drobilla/serd.git"
+SCRIPT_COMMIT="b6053bb2a4533e6a8e3821c1061f140d5e666938"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$SERD_REPO" "$SERD_COMMIT" serd
-    cd serd
-    git submodule update --init --recursive --depth 1
+    mkdir build && cd build
 
-    local mywaf=(
+    local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --no-utils
-        --static
-        --no-shared
-        --largefile
-        --stack-check
+        --buildtype=release
+        --default-library=static
+        -Ddocs=disabled
+        -Dtools=disabled
+        -Dtests=disabled
     )
 
-    CC="${FFBUILD_CROSS_PREFIX}gcc" CXX="${FFBUILD_CROSS_PREFIX}g++" ./waf configure "${mywaf[@]}"
-    ./waf -j$(nproc)
-    ./waf install
+    if [[ $TARGET == win* || $TARGET == linux* ]]; then
+        myconf+=(
+            --cross-file=/cross.meson
+        )
+    else
+        echo "Unknown target"
+        return -1
+    fi
 
-    sed -i 's/Cflags:/Cflags: -DSERD_STATIC/' "$FFBUILD_PREFIX"/lib/pkgconfig/serd-0.pc
+    meson "${myconf[@]}" ..
+    ninja -j"$(nproc)"
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 }

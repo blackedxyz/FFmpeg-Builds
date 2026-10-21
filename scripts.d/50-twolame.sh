@@ -1,18 +1,19 @@
 #!/bin/bash
 
-TWOLAME_SRC="https://sourceforge.net/projects/twolame/files/twolame/0.4.0/twolame-0.4.0.tar.gz/download"
+SCRIPT_REPO="https://github.com/njh/twolame.git"
+SCRIPT_COMMIT="6fced852d4d5cfad58cf9dbe3ea619b08e87d398"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    mkdir twolame
-    cd twolame
-    wget -O twolame.tar.gz "$TWOLAME_SRC"
-    tar xaf twolame.tar.gz
-    rm twolame.tar.gz
-    cd twolame*
+    # libtoolize version detection is broken, disable it, we got the right versions
+    printf 'print "999999\\n"\n' > autogen-get-version-mock.pl
+    sed -i -e 's|/autogen-get-version.pl|/autogen-get-version-mock.pl|g' ./autogen.sh
+
+    NOCONFIGURE=1 ./autogen.sh
+    touch doc/twolame.1
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -33,9 +34,9 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 
-    sed -i 's/Cflags:/Cflags: -DLIBTWOLAME_STATIC/' "$FFBUILD_PREFIX"/lib/pkgconfig/twolame.pc
+    sed -i 's/Cflags:/Cflags: -DLIBTWOLAME_STATIC/' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/twolame.pc
 }
 
 ffbuild_configure() {

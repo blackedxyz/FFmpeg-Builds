@@ -1,20 +1,18 @@
 #!/bin/bash
 
-XVID_SRC="https://downloads.xvid.com/downloads/xvidcore-1.3.7.tar.gz"
+SCRIPT_REPO="https://svn.xvid.org/trunk/xvidcore"
+SCRIPT_REV="2204"
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return -1
     return 0
 }
 
-ffbuild_dockerbuild() {
-    mkdir xvid
-    cd xvid
-    wget -O xvid.tar.gz "$XVID_SRC"
-    tar xaf xvid.tar.gz
-    rm xvid.tar.gz
-    cd xvid*
+ffbuild_dockerdl() {
+    echo "retry-tool sh -c \"rm -rf xvid && svn --non-interactive checkout --username 'anonymous' --password '' '${SCRIPT_REPO}@${SCRIPT_REV}' xvid\" && cd xvid"
+}
 
+ffbuild_dockerbuild() {
     cd build/generic
 
     # The original code fails on a two-digit major...
@@ -40,13 +38,12 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 
     if [[ $TARGET == win* ]]; then
-        rm "$FFBUILD_PREFIX"/{bin/xvidcore.dll,lib/xvidcore.dll.a}
-        mv "$FFBUILD_PREFIX"/lib/{,lib}xvidcore.a
+        rm "$FFBUILD_DESTPREFIX"/{bin/libxvidcore.dll,lib/libxvidcore.dll.a}
     elif [[ $TARGET == linux* ]]; then
-        rm "$FFBUILD_PREFIX"/lib/libxvidcore.so*
+        rm "$FFBUILD_DESTPREFIX"/lib/libxvidcore.so*
     fi
 }
 

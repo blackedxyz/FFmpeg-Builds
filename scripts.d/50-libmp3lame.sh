@@ -1,27 +1,30 @@
 #!/bin/bash
 
-LAME_SRC="https://sourceforge.net/projects/lame/files/lame/3.100/lame-3.100.tar.gz/download"
+SCRIPT_REPO="https://svn.code.sf.net/p/lame/svn/trunk/lame"
+SCRIPT_REV="6835"
+
+ffbuild_depends() {
+    echo base
+    echo libiconv
+}
 
 ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerbuild() {
-    mkdir lame
-    cd lame
-    wget -O lame.tar.gz "$LAME_SRC"
-    tar xaf lame.tar.gz
-    rm lame.tar.gz
-    cd lame*
+ffbuild_dockerdl() {
+    echo "retry-tool sh -c \"rm -rf lame && svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' lame\" && cd lame"
+    echo "autoreconf -i"
+}
 
+ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --disable-shared
         --enable-static
-        --enable-nasm
-        --disable-gtktest
         --disable-cpml
         --disable-frontend
+        --disable-decoder
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
@@ -33,9 +36,11 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
+    export CFLAGS="$CFLAGS -DNDEBUG"
+
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {

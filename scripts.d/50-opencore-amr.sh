@@ -1,19 +1,13 @@
 #!/bin/bash
 
-OAMR_SRC="https://sourceforge.net/projects/opencore-amr/files/opencore-amr/opencore-amr-0.1.5.tar.gz/download"
+SCRIPT_REPO="https://git.code.sf.net/p/opencore-amr/code"
+SCRIPT_COMMIT="7dba8c32238418ce0b316a852b2224df586ca896"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    mkdir opencore
-    cd opencore
-    wget -O opencore.tar.gz "$OAMR_SRC"
-    tar xaf opencore.tar.gz
-    rm opencore.tar.gz
-    cd opencore*
-
     autoreconf -i
 
     local myconf=(
@@ -37,7 +31,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {

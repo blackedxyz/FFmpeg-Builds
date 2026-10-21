@@ -4,7 +4,7 @@ git fetch --tags
 TAGS=( $(git tag -l "autobuild-*" | sort -r) )
 
 KEEP_LATEST=14
-KEEP_MONTHLY=12
+KEEP_MONTHLY=24
 
 LATEST_TAGS=()
 MONTHLY_TAGS=()
@@ -32,8 +32,7 @@ done
 
 for TAG in ${TAGS[@]}; do
     echo "Deleting ${TAG}"
-    hub release delete "${TAG}"
-    git tag -d "${TAG}"
+    gh release delete --cleanup-tag --yes "${TAG}"
 done
 
 git push --tags --prune

@@ -1,16 +1,14 @@
 #!/bin/bash
 
-LIBVPX_REPO="https://chromium.googlesource.com/webm/libvpx"
-LIBVPX_COMMIT="c56ab7d0c6f3fb215d571db3dacc0cc908c1b53c"
+SCRIPT_REPO="https://chromium.googlesource.com/webm/libvpx"
+SCRIPT_COMMIT="5e680f30801d03c21078f8c4b772464752516211"
 
 ffbuild_enabled() {
+    [[ $TARGET == winarm64 ]] && return -1
     return 0
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$LIBVPX_REPO" "$LIBVPX_COMMIT" libvpx
-    cd libvpx
-
     local myconf=(
         --disable-shared
         --enable-static
@@ -18,6 +16,7 @@ ffbuild_dockerbuild() {
         --disable-examples
         --disable-tools
         --disable-docs
+        --disable-unit-tests
         --enable-vp9-highbitdepth
         --prefix="$FFBUILD_PREFIX"
     )
@@ -32,9 +31,19 @@ ffbuild_dockerbuild() {
             --target=x86-win32-gcc
         )
         export CROSS="$FFBUILD_CROSS_PREFIX"
-    elif [[ $TARGET == linux* ]]; then
+    elif [[ $TARGET == winarm64 ]]; then
+        myconf+=(
+            --target=arm64-win64-gcc
+        )
+        export CROSS="$FFBUILD_CROSS_PREFIX"
+    elif [[ $TARGET == linux64 ]]; then
         myconf+=(
             --target=x86_64-linux-gcc
+        )
+        export CROSS="$FFBUILD_CROSS_PREFIX"
+    elif [[ $TARGET == linuxarm64 ]]; then
+        myconf+=(
+            --target=arm64-linux-gcc
         )
         export CROSS="$FFBUILD_CROSS_PREFIX"
     else
@@ -44,7 +53,10 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # Work around strip breaking LTO symbol index
+    "$RANLIB" "$FFBUILD_DESTPREFIX"/lib/libvpx.a
 }
 
 ffbuild_configure() {

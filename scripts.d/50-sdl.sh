@@ -1,40 +1,70 @@
 #!/bin/bash
 
-SDL_SRC="https://libsdl.org/release/SDL2-2.0.16.tar.gz"
+SCRIPT_REPO="https://github.com/libsdl-org/SDL.git"
+SCRIPT_COMMIT="b90ac95029d801c5abc59472ba8e2200dff31e1e"
+SCRIPT_BRANCH="SDL2"
+
+ffbuild_depends() {
+    echo base
+    echo libiconv
+    echo x11
+    echo pulseaudio
+    echo libsamplerate
+}
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    mkdir sdl
-    cd sdl
+    mkdir build && cd build
 
-    wget "$SDL_SRC" -O SDL.tar.gz
-    tar xaf SDL.tar.gz
-    rm SDL.tar.gz
-    cd SDL*
+    local mycmake=(
+        -DSDL_SHARED=OFF
+        -DSDL_STATIC=ON
+        -DSDL_STATIC_PIC=ON
+        -DSDL_TEST=OFF
+        -DSDL_CCACHE=OFF
 
-    ./autogen.sh
-
-    local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --disable-shared
-        --enable-static
+        -DSDL_LIBSAMPLERATE=ON
+        -DSDL_LIBSAMPLERATE_SHARED=OFF
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
+    if [[ $TARGET == linux* ]]; then
+        mycmake+=(
+            -DSDL_X11=ON
+            -DSDL_X11_SHARED=OFF
+            -DHAVE_XGENERICEVENT=TRUE
+            -DSDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM=1
+
+            -DSDL_PULSEAUDIO=ON
+            -DSDL_PULSEAUDIO_SHARED=OFF
         )
-    else
-        echo "Unknown target"
-        return -1
     fi
 
-    ./configure "${myconf[@]}"
-    make -j$(nproc)
-    make install
+    cmake -GNinja -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" "${mycmake[@]}" ..
+
+    ninja -j$(nproc)
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    if [[ $TARGET == linux* ]]; then
+        sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
+            -e 's/ \-l\/.+?\.a//g' \
+            "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+        echo 'Requires: libpulse-simple xxf86vm xscrnsaver xrandr xfixes xi xinerama xcursor' >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+    elif [[ $TARGET == win* ]]; then
+        sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
+            -e 's/ \-mwindows//g' \
+            -e 's/ \-lSDL2main//g' \
+            -e 's/ \-Dmain=SDL_main//g' \
+            "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+    fi
+
+    sed -ri -e 's/ -lSDL2//g' \
+        -e 's/Libs: /Libs: -lSDL2 /'\
+        "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+
+    echo 'Requires: samplerate' >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
 }
 
 ffbuild_configure() {
@@ -43,12 +73,4 @@ ffbuild_configure() {
 
 ffbuild_unconfigure() {
     echo --disable-sdl2
-}
-
-ffbuild_cflags() {
-    return 0
-}
-
-ffbuild_ldflags() {
-    return 0
 }

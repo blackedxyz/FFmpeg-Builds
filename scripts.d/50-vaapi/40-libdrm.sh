@@ -1,7 +1,7 @@
 #!/bin/bash
 
-LIBDRM_REPO="https://gitlab.freedesktop.org/mesa/drm.git"
-LIBDRM_COMMIT="d77ccdf3ba6f5a396049241bff18a7a9c8329659"
+SCRIPT_REPO="https://gitlab.freedesktop.org/mesa/drm.git"
+SCRIPT_COMMIT="b97cbde15c5c3abfe44d78e8f57139e50f612fec"
 
 ffbuild_enabled() {
     [[ $TARGET != linux* ]] && return -1
@@ -9,26 +9,21 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$LIBDRM_REPO" "$LIBDRM_COMMIT" libdrm
-    cd libdrm
-
     mkdir build && cd build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        -Ddefault_library=static
-        -Dlibkms=false
+        -Ddefault_library=shared
         -Dudev=false
-        -Dcairo-tests=false
-        -Dvalgrind=false
-        -Dexynos=false
-        -Dfreedreno=false
-        -Domap=false
-        -Detnaviv=false
-        -Dintel=true
-        -Dnouveau=true
-        -Dradeon=true
-        -Damdgpu=true
+        -Dcairo-tests=disabled
+        -Dvalgrind=disabled
+        -Dexynos=disabled
+        -Domap=disabled
+        -Detnaviv=disabled
+        -Dintel=enabled
+        -Dnouveau=enabled
+        -Dradeon=enabled
+        -Damdgpu=enabled
     )
 
     if [[ $TARGET == linux* ]]; then
@@ -40,9 +35,17 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
+    export CFLAGS="$RAW_CFLAGS"
+    export LDFLAGS="$RAW_LDFLAGS"
+
     meson "${myconf[@]}" ..
     ninja -j$(nproc)
-    ninja install
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libdrm.so.2,libdrm.a}
+    rm "$FFBUILD_DESTPREFIX"/lib/libdrm*.so*
+
+    echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libdrm.pc
 }
 
 ffbuild_configure() {

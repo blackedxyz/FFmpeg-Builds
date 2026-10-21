@@ -11,9 +11,20 @@ package_variant() {
     cp "$IN"/bin/*.lib "$OUT"/lib
     cp "$IN"/lib/*.{def,dll.a} "$OUT"/lib
 
+    mkdir -p "$OUT"/lib/pkgconfig
+    cp -a "$IN"/lib/pkgconfig/*.pc "$OUT"/lib/pkgconfig
+    sed -i \
+        -e 's|^prefix=.*|prefix=${pcfiledir}/../..|' \
+        -e 's|/ffbuild/prefix|${prefix}|' \
+        -e '/Libs.private:/d' \
+        "$OUT"/lib/pkgconfig/*.pc
+
     mkdir -p "$OUT"/include
     cp -r "$IN"/include/* "$OUT"/include
 
     mkdir -p "$OUT"/doc
     cp -r "$IN"/share/doc/ffmpeg/* "$OUT"/doc
+
+    mkdir -p "$OUT/presets"
+    cp "$IN"/share/ffmpeg/*.ffpreset "$OUT"/presets
 }

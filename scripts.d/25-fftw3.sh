@@ -1,37 +1,35 @@
 #!/bin/bash
 
-# http://fftw.org/download.html
-FFTW3_SRC="https://fftw.org/fftw-3.3.10.tar.gz"
-FFTW3_SHA512="2d34b5ccac7b08740dbdacc6ebe451d8a34cf9d9bfec85a5e776e87adf94abfd803c222412d8e10fbaa4ed46f504aa87180396af1b108666cde4314a55610b40"
+SCRIPT_REPO="https://github.com/FFTW/fftw3.git"
+SCRIPT_COMMIT="93ed4c786934aec9946f8dda4b4e3eb08f8be41c"
 
 ffbuild_enabled() {
-    # Dependency of GPL-Only librubberband
-    [[ $VARIANT == lgpl* ]] && return -1
     return 0
 }
 
 ffbuild_dockerbuild() {
-    mkdir fftw3
-    cd fftw3
-
-    check-wget fftw3.tar.gz "$FFTW3_SRC" "$FFTW3_SHA512"
-    tar xaf fftw3.tar.gz
-    rm fftw3.tar.gz
-    cd fftw*
+    sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --enable-maintainer-mode
         --disable-shared
         --enable-static
+        --disable-fortran
         --disable-doc
         --with-our-malloc
         --enable-threads
         --with-combined-threads
         --with-incoming-stack-boundary=2
-        --enable-sse2
-        --enable-avx
-        --enable-avx2
     )
+
+    if [[ $TARGET != *arm64 ]]; then
+        myconf+=(
+            --enable-sse2
+            --enable-avx
+            --enable-avx2
+        )
+    fi
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
@@ -42,7 +40,9 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
-    ./configure "${myconf[@]}"
+    sed -i 's/windows.h/process.h/' configure.ac
+
+    ./bootstrap.sh "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }

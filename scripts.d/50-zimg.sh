@@ -1,15 +1,19 @@
 #!/bin/bash
 
-ZIMG_REPO="https://github.com/sekrit-twc/zimg.git"
-ZIMG_COMMIT="d2495cab859570112102ef40269a900b81009667"
+SCRIPT_REPO="https://github.com/sekrit-twc/zimg.git"
+SCRIPT_COMMIT="67e0603271c080e22c8429856dd4a8a56587e61e"
 
 ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    default_dl .
+    echo "git submodule update --init --recursive --depth=1"
+}
+
 ffbuild_dockerbuild() {
-    git-mini-clone "$ZIMG_REPO" "$ZIMG_COMMIT" zimg
-    cd zimg
+    sed -i '1i #include <exception>' src/zimg/api/zimg.cpp
 
     ./autogen.sh
 
@@ -31,7 +35,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {

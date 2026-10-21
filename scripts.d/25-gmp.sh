@@ -1,23 +1,21 @@
 #!/bin/bash
 
-GMP_SRC="https://ftp.gnu.org/gnu/gmp/gmp-6.2.1.tar.xz"
+SCRIPT_REPO="https://github.com/BtbN/gmplib.git"
+SCRIPT_COMMIT="763b40df71c0f4d5f5d7b33dc55038c8c9377ecf"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    wget "$GMP_SRC" -O gmp.tar.xz
-    tar xaf gmp.tar.xz
-    rm gmp.tar.xz
-    cd gmp*
-
-    autoreconf -i
+    ./.bootstrap
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --enable-maintainer-mode
         --disable-shared
         --enable-static
+        --with-pic
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
@@ -31,7 +29,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {

@@ -1,41 +1,37 @@
 #!/bin/bash
 
-FREI0R_REPO="https://github.com/dyne/frei0r.git"
-FREI0R_COMMIT="700564265acdb94497c22d5c703dc38ed9d1b649"
+SCRIPT_REPO="https://github.com/dyne/frei0r.git"
+SCRIPT_COMMIT="4c95b2a02b2d03c71d5f6d7980d16c99acfd5a5f"
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return -1
-    [[ $ADDINS_STR == *4.4* ]] && return -1
+    (( $(ffbuild_ffver) >= 500 )) || return -1
     return 0
 }
 
+ffbuild_depends() {
+    echo base
+    echo x11
+}
+
+ffbuild_dockerfinal() {
+    to_df "COPY --link --from=${PREVLAYER} \$FFBUILD_PREFIX/. \$FFBUILD_PREFIX"
+    to_df "ENV FREI0R_PATH=\$FFBUILD_PREFIX/lib/frei0r-1"
+}
+
 ffbuild_dockerbuild() {
-    git-mini-clone "$FREI0R_REPO" "$FREI0R_COMMIT" frei0r
-    cd frei0r
+    echo > test/CMakeLists.txt
 
-    ./autogen.sh
+    mkdir build && cd build
 
-    local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --disable-shared
-        --enable-static
-        --with-pic
-        --enable-cpuflags
-    )
+    export CFLAGS="$RAW_CFLAGS"
+    export CXXFLAGS="$RAW_CXXFLAGS"
+    export LDFLAGS="$RAW_LDFLAGS"
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
-
-    ./configure "${myconf[@]}"
-    make -C include -j$(nproc)
-    make -C include install
-    make install-pkgconfigDATA
+    cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -DWITHOUT_OPENCV=ON -DWITHOUT_FACERECOGNITION=ON -DWITHOUT_CAIRO=ON -DWITHOUT_GAVL=ON ..
+    ninja -j$(nproc)
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 }
 
 ffbuild_configure() {
@@ -43,5 +39,6 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
+    (( $(ffbuild_ffver) >= 404 )) || return 0
     echo --disable-frei0r
 }

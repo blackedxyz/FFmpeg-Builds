@@ -1,7 +1,7 @@
 #!/bin/bash
 
-LIBXCB_REPO="https://gitlab.freedesktop.org/xorg/lib/libxcb.git"
-LIBXCB_COMMIT="233d7b7f1f03ef18bf3955eb1f20421e745d22f0"
+SCRIPT_REPO="https://gitlab.freedesktop.org/xorg/lib/libxcb.git"
+SCRIPT_COMMIT="d4e07bab5729c7d7cc3d2b95568cd9a661a53c4f"
 
 ffbuild_enabled() {
     [[ $TARGET != linux* ]] && return -1
@@ -9,15 +9,12 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$LIBXCB_REPO" "$LIBXCB_COMMIT" libxcb
-    cd libxcb
-
     autoreconf -i
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --disable-shared
-        --enable-static
+        --enable-shared
+        --disable-static
         --with-pic
         --disable-devel-docs
     )
@@ -31,9 +28,17 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
+    export CFLAGS="$RAW_CFLAGS"
+    export LDFLAGS="$RAW_LDFLAGS"
+
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
+
+    for LIBNAME in "$FFBUILD_DESTPREFIX"/lib/libxcb*.so.?; do
+        gen-implib "$LIBNAME" "${LIBNAME%%.*}.a"
+        rm "${LIBNAME%%.*}"{.so*,.la}
+    done
 }
 
 ffbuild_configure() {

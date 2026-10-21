@@ -1,16 +1,14 @@
 #!/bin/bash
 
-LIBRIST_REPO="https://code.videolan.org/rist/librist.git"
-LIBRIST_COMMIT="0b1aaf995c4cad83d562ec7887180cc6ee132c84"
+SCRIPT_REPO="https://code.videolan.org/rist/librist.git"
+SCRIPT_COMMIT="4f45ef8f78983892d52ccd52d9f675435b23738f"
 
 ffbuild_enabled() {
+    (( $(ffbuild_ffver) >= 404 )) || return -1
     return 0
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$LIBRIST_REPO" "$LIBRIST_COMMIT" librist
-    cd librist
-
     mkdir build && cd build
 
     local myconf=(
@@ -40,7 +38,9 @@ ffbuild_dockerbuild() {
 
     meson "${myconf[@]}" ..
     ninja -j"$(nproc)"
-    ninja install
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    echo "Requires: mbedcrypto" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/librist.pc
 }
 
 ffbuild_configure() {
@@ -48,5 +48,6 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
+    (( $(ffbuild_ffver) >= 404 )) || return 0
     echo --disable-librist
 }

@@ -1,16 +1,13 @@
 #!/bin/bash
 
-FRIBIDI_REPO="https://github.com/fribidi/fribidi.git"
-FRIBIDI_COMMIT="9ca69d112678832f3b734cc8e399583bb12de02d"
+SCRIPT_REPO="https://github.com/fribidi/fribidi.git"
+SCRIPT_COMMIT="4c914a92e94a9fe4f30ae83a1130099841566448"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    git-mini-clone "$FRIBIDI_REPO" "$FRIBIDI_COMMIT" fribidi
-    cd fribidi
-
     mkdir build && cd build
 
     local myconf=(
@@ -33,9 +30,9 @@ ffbuild_dockerbuild() {
 
     meson "${myconf[@]}" ..
     ninja -j$(nproc)
-    ninja install
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    sed -i 's/Cflags:/Cflags: -DFRIBIDI_LIB_STATIC/' "$FFBUILD_PREFIX"/lib/pkgconfig/fribidi.pc
+    sed -i 's/Cflags:/Cflags: -DFRIBIDI_LIB_STATIC/' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/fribidi.pc
 }
 
 ffbuild_configure() {

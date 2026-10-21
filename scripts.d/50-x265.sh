@@ -1,18 +1,18 @@
 #!/bin/bash
 
-X265_REPO="https://bitbucket.org/multicoreware/x265_git.git"
-X265_COMMIT="8003e43825ee83b8ef346c8c3562c508ab23f117"
+SCRIPT_REPO="https://github.com/Multicorewareinc/x265.git"
+SCRIPT_COMMIT="020d7054dbecfd3be8e62efe33ff8a305d41856e"
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return -1
     return 0
 }
 
-ffbuild_dockerbuild() {
-    git clone "$X265_REPO" x265
-    cd x265
-    git checkout "$X265_COMMIT"
+ffbuild_dockerdl() {
+    echo "git clone --filter=blob:none \"$SCRIPT_REPO\" . && git checkout \"$SCRIPT_COMMIT\""
+}
 
+ffbuild_dockerbuild() {
     local common_config=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -20,7 +20,10 @@ ffbuild_dockerbuild() {
         -DENABLE_SHARED=OFF
         -DENABLE_CLI=OFF
         -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy
+        -DENABLE_ALPHA=ON
     )
+
+    sed -i '1i#include <cstdint>' source/dynamicHDR10/json11/json11.cpp
 
     if [[ $TARGET != *32 ]]; then
         mkdir 8bit 10bit 12bit
@@ -45,7 +48,7 @@ EOF
         mv ../10bit/libx265.a ../8bit/libx265_main10.a
         mv libx265.a libx265_main.a
 
-        ${FFBUILD_CROSS_PREFIX}ar -M <<EOF
+        ${AR} -M <<EOF
 CREATE libx265.a
 ADDLIB libx265_main.a
 ADDLIB libx265_main10.a
@@ -60,7 +63,9 @@ EOF
         make -j$(nproc)
     fi
 
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
+
+    echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/x265.pc
 }
 
 ffbuild_configure() {

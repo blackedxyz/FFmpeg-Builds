@@ -1,36 +1,21 @@
 #!/bin/bash
 
-ZLIB_SRC="https://zlib.net/zlib-1.2.11.tar.gz"
+SCRIPT_REPO="https://github.com/madler/zlib.git"
+SCRIPT_COMMIT="767c4c947852e143f582c85f14cf573411df1b35"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    mkdir zlib
-    cd zlib
-
-    wget "$ZLIB_SRC" -O zlib.tar.gz
-    tar xaf zlib.tar.gz
-    rm zlib.tar.gz
-    cd zlib*
-
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --static
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        export CC="${FFBUILD_CROSS_PREFIX}gcc"
-        export AR="${FFBUILD_CROSS_PREFIX}ar"
-    else
-        echo "Unknown target"
-        return -1
-    fi
-
     ./configure "${myconf[@]}"
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {

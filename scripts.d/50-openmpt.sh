@@ -1,16 +1,21 @@
 #!/bin/bash
 
-OPENMPT_REPO="https://source.openmpt.org/svn/openmpt/trunk/OpenMPT"
-OPENMPT_REV="16112"
+SCRIPT_REPO="https://github.com/OpenMPT/openmpt.git"
+SCRIPT_COMMIT="f83cedb0cd5446e4dfaa83ac97e3087107e26767"
+
+ffbuild_depends() {
+    echo base
+    echo zlib
+    echo libogg
+    echo libvorbis
+}
 
 ffbuild_enabled() {
+    [[ $TARGET == winarm64 ]] && return -1
     return 0
 }
 
 ffbuild_dockerbuild() {
-    svn checkout "${OPENMPT_REPO}@${OPENMPT_REV}" openmpt
-    cd openmpt
-
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
         CXXSTDLIB_PCLIBSPRIVATE="-lstdc++"
@@ -41,7 +46,13 @@ ffbuild_dockerbuild() {
         NO_FLAC=1
     )
 
-    if [[ $TARGET == win* ]]; then
+    if [[ $TARGET == winarm64 ]]; then
+        myconf+=(
+            CONFIG=mingw64-win64
+            WINDOWS_ARCH=arm64
+        )
+        export CPPFLAGS="$CPPFLAGS -DMPT_WITH_MINGWSTDTHREADS"
+    elif [[ $TARGET == win* ]]; then
         myconf+=(
             CONFIG=mingw64-"$TARGET"
         )
@@ -56,8 +67,8 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
-    make -j$(nproc) "${myconf[@]}" all install
-    rm -r "$FFBUILD_PREFIX"/share/doc/libopenmpt
+    make -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR"
+    rm -r "$FFBUILD_DESTPREFIX"/share/doc/libopenmpt
 }
 
 ffbuild_configure() {
